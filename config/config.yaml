@@ -1,0 +1,56 @@
+# jarvis-server configuration (non-secret). Secrets live in .env.
+# Paths below are relative to the repo root by default so it runs out of the
+# box for local testing; for a real deployment point these at /srv/jarvis/...
+# and make sure that directory is owned by the service user, not root.
+
+server:
+  host: 0.0.0.0
+  port: 8420
+  # Only clients connecting from this subnet are accepted, regardless of token.
+  allowed_subnet: 192.168.1.0/24
+  tls:
+    enabled: false          # set true and fill in cert/key before exposing beyond localhost
+    cert_file: config/certs/server.crt
+    key_file: config/certs/server.key
+
+agent:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  max_tokens: 4096
+  max_tool_iterations: 25    # hard cap on tool-call round trips per turn, avoids runaway loops
+  system_prompt_file: prompts/jarvis_system.md
+
+workspace:
+  root: runtime/workspace
+  max_upload_mb: 200
+  session_ttl_hours: 72
+
+sandbox:
+  backend: docker
+  image: jarvis-sandbox:py3.12
+  # none       -> no network at all inside the container (default, safest)
+  # restricted -> egress only to the allowlist proxy in sandbox_image/restricted-proxy
+  # full       -> normal bridge network, reaches LAN + internet
+  network: none
+  # host.docker.internal + --add-host=host-gateway (wired in server/sandbox.py)
+  # is how a "restricted" container reaches the proxy on the host; see
+  # sandbox_image/restricted-proxy/ for the proxy itself.
+  restricted_proxy_url: http://host.docker.internal:3128
+  cpu_limit: "2"
+  memory_limit: "2g"
+  pids_limit: 128
+  timeout_seconds: 600
+  run_as_uid: 10001
+
+tools:
+  builtin: [list_dir, read_file, write_file, run_python, propose_tool]
+  pending_dir: runtime/tools/pending
+  approved_dir: runtime/tools/approved
+  require_human_approval: true   # not agent-overridable, see server/admin.py
+
+auth:
+  users_file: config/users.yaml
+
+logging:
+  audit_log: runtime/logs/audit.log
+  level: INFO

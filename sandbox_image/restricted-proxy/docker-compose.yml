@@ -1,0 +1,21 @@
+# Optional: only needed if you actually use sandbox network mode "restricted".
+# Start once with: docker compose up -d   (from this directory)
+#
+# NOTE: port 3128 is published on all host interfaces (not just the docker
+# bridge) because sandbox containers reach it via the bridge gateway address,
+# which docker's port publishing can't bind to directly. squid.conf's
+# docker_nets ACL is what actually keeps this from being an open proxy to
+# the rest of your LAN — if you want defense in depth, also firewall 3128 to
+# the docker subnet only, e.g.:
+#   sudo ufw allow from 172.16.0.0/12 to any port 3128
+#   sudo ufw deny 3128
+
+services:
+  jarvis-restricted-proxy:
+    image: ubuntu/squid:latest
+    container_name: jarvis-restricted-proxy
+    restart: unless-stopped
+    ports:
+      - "3128:3128"
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro

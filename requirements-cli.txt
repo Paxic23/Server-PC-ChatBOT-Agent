@@ -1,0 +1,4 @@
+# jarvis-cli dependencies (install on any LAN machine that wants to talk to jarvis-server)
+requests>=2.32
+websockets>=13.0
+PyYAML>=6.0

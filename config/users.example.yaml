@@ -1,0 +1,17 @@
+# Copy to config/users.yaml (gitignored — this file grants access, keep it private).
+#
+# `token_env` names an environment variable (set in .env or the systemd unit)
+# that holds the actual bearer token. Tokens are never written to this file
+# directly so it's safe to keep non-secret metadata here even if it leaks.
+#
+# roles:
+#   admin - can also call the tool-approval endpoints (review/approve/reject)
+#   user  - can chat, upload files, run code; cannot approve tools
+
+- name: john
+  token_env: JARVIS_ADMIN_TOKEN
+  role: admin
+
+# - name: livingroom-pi
+#   token_env: JARVIS_TOKEN_LIVINGROOM_PI
+#   role: user

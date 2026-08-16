@@ -1,0 +1,28 @@
+[Unit]
+Description=jarvis-server (agentic LAN assistant)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+# Create a dedicated, unprivileged user for this rather than running as root
+# or your own login user: sudo useradd --system --create-home jarvis
+#   sudo usermod -aG docker jarvis      # needed to launch sandbox containers
+User=jarvis
+Group=jarvis
+WorkingDirectory=/opt/jarvis
+EnvironmentFile=/opt/jarvis/.env
+ExecStart=/opt/jarvis/.venv/bin/python -m server.main
+Restart=on-failure
+RestartSec=5
+
+# Light hardening — the real sandbox boundary is Docker (see server/sandbox.py),
+# this just keeps the server process itself from touching things it has no
+# reason to.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/jarvis/runtime
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+# jarvis-server dependencies (install on the Pop!_OS box)
+fastapi>=0.115
+uvicorn[standard]>=0.32
+anthropic>=0.40
+PyYAML>=6.0
+python-dotenv>=1.0
+python-multipart>=0.0.12
+websockets>=13.0
