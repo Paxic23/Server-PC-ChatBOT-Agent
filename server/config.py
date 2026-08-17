@@ -129,7 +129,7 @@ def load_config(config_path: str | Path = "config/config.yaml", env_path: str | 
         server=ServerConfig(
             host=server_raw["host"],
             port=int(server_raw["port"]),
-            allowed_subnet=ipaddress.ip_network(server_raw["allowed_subnet"]),
+            allowed_subnet=ipaddress.ip_network(server_raw["allowed_subnet"], strict=False),
             tls=TLSConfig(
                 enabled=bool(tls_raw.get("enabled", False)),
                 cert_file=resolve(tls_raw["cert_file"]),

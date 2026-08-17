@@ -7,7 +7,7 @@ server:
   host: 0.0.0.0
   port: 8420
   # Only clients connecting from this subnet are accepted, regardless of token.
-  allowed_subnet: 192.168.1.0/24
+  allowed_subnet: 10.0.0.0/24
   tls:
     enabled: false          # set true and fill in cert/key before exposing beyond localhost
     cert_file: config/certs/server.crt
@@ -31,7 +31,7 @@ sandbox:
   # none       -> no network at all inside the container (default, safest)
   # restricted -> egress only to the allowlist proxy in sandbox_image/restricted-proxy
   # full       -> normal bridge network, reaches LAN + internet
-  network: none
+  network: full
   # host.docker.internal + --add-host=host-gateway (wired in server/sandbox.py)
   # is how a "restricted" container reaches the proxy on the host; see
   # sandbox_image/restricted-proxy/ for the proxy itself.
