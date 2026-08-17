@@ -7,12 +7,14 @@ or:
 """
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from server import admin, workspace
 from server.agent import AgentCore
@@ -27,7 +29,7 @@ from server.models import (
     RejectToolRequest,
     UploadResponse,
 )
-from server.sessions import SessionStore
+from server.sessions import SESSION_FILE_NAME, SessionStore
 from server.tools.builtin import BUILTIN_SPECS
 from server.tools.registry import ToolRegistry
 
@@ -91,6 +93,36 @@ def download_file(session_id: str, path: str, user: User = Depends(get_current_u
     if not target.is_file():
         raise HTTPException(status_code=400, detail=f"{path!r} is not a file")
     return FileResponse(target)
+
+
+@app.get("/v1/sessions/{session_id}/archive")
+def download_archive(session_id: str, path: str = ".", user: User = Depends(get_current_user)):
+    """Zip the session workspace (or a subfolder of it) and stream it back —
+    the counterpart to file upload for getting an entire modified project
+    back out in one shot instead of pulling files one at a time."""
+    config: AppConfig = app.state.config
+    session = app.state.sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    try:
+        target = workspace.resolve_safe_path(session.workspace_root, path, must_exist=True)
+    except (workspace.PathEscapeError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if not target.is_dir():
+        raise HTTPException(status_code=400, detail=f"{path!r} is not a directory")
+
+    fd, tmp_name = tempfile.mkstemp(suffix=".zip")
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    file_count = workspace.zip_directory(target, tmp_path, exclude={SESSION_FILE_NAME})
+
+    audit_log(config.logging.audit_log, "download_archive", session_id=session_id, user=user.name, path=path, file_count=file_count)
+    return FileResponse(
+        tmp_path,
+        filename=f"jarvis-{session_id}.zip",
+        media_type="application/zip",
+        background=BackgroundTask(lambda: tmp_path.unlink(missing_ok=True)),
+    )
 
 
 @app.websocket("/v1/sessions/{session_id}/stream")

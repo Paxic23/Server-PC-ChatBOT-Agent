@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import zipfile
 from pathlib import Path
+from typing import Optional
 
 
 class PathEscapeError(Exception):
@@ -68,3 +69,23 @@ def extract_zip_safely(zip_path: Path, dest_root: Path) -> list[str]:
                 dst.write(src.read())
             extracted.append(info.filename)
     return extracted
+
+
+def zip_directory(source_dir: Path, dest_zip: Path, exclude: Optional[set] = None) -> int:
+    """Zip everything under source_dir (recursively) into dest_zip, using
+    paths relative to source_dir. Returns the number of files written.
+    `exclude` matches against the file's name and its full relative path, so
+    callers can skip internal bookkeeping files (e.g. the session's own
+    history file) without leaking them into a downloaded archive."""
+    exclude = exclude or set()
+    count = 0
+    with zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in sorted(source_dir.rglob("*")):
+            if f.is_dir():
+                continue
+            rel = f.relative_to(source_dir)
+            if f.name in exclude or str(rel) in exclude:
+                continue
+            zf.write(f, rel)
+            count += 1
+    return count

@@ -154,7 +154,14 @@ def cmd_send(args: argparse.Namespace) -> None:
     finally:
         zip_path.unlink(missing_ok=True)
 
-    asyncio.run(_send_message(server_url, session_id, args.message))
+    # The upload is a plain HTTP call the model never sees — without this,
+    # Jarvis has no way to know new files just landed in its workspace and
+    # will assume the conversation has no code attached.
+    file_list = "\n".join(f"- {f}" for f in extracted)
+    announced_message = (
+        f"[{len(extracted)} file(s) were just uploaded to your workspace:]\n{file_list}\n\n{args.message}"
+    )
+    asyncio.run(_send_message(server_url, session_id, announced_message))
 
 
 def cmd_chat(args: argparse.Namespace) -> None:
@@ -177,6 +184,23 @@ def cmd_pull(args: argparse.Namespace) -> None:
     )
     resp.raise_for_status()
     out = Path(args.out or Path(args.remote_path).name)
+    out.write_bytes(resp.content)
+    print(f"[jarvis] wrote {out}")
+
+
+def cmd_pull_all(args: argparse.Namespace) -> None:
+    server_url = _server_url()
+    session_id = _current_session(server_url)
+    if not session_id:
+        sys.exit("no active session — run `jarvis chat` or `jarvis send` first")
+    resp = requests.get(
+        f"{server_url}/v1/sessions/{session_id}/archive",
+        headers=_headers(),
+        params={"path": args.path},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    out = Path(args.out or f"jarvis-{session_id}.zip")
     out.write_bytes(resp.content)
     print(f"[jarvis] wrote {out}")
 
@@ -239,10 +263,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_new.add_argument("--network", choices=["none", "restricted", "full"])
     p_new.set_defaults(func=cmd_new)
 
-    p_pull = sub.add_parser("pull", help="download a file from the current session's workspace")
+    p_pull = sub.add_parser("pull", help="download a single file from the current session's workspace")
     p_pull.add_argument("remote_path")
     p_pull.add_argument("--out", help="local destination path (default: same filename)")
     p_pull.set_defaults(func=cmd_pull)
+
+    p_pull_all = sub.add_parser("pull-all", help="download the whole session workspace (or a subfolder) as a zip")
+    p_pull_all.add_argument("--path", default=".", help="subfolder to zip, relative to the workspace root (default: everything)")
+    p_pull_all.add_argument("--out", help="local destination zip path (default: jarvis-<session-id>.zip)")
+    p_pull_all.set_defaults(func=cmd_pull_all)
 
     p_admin = sub.add_parser("admin", help="admin-only commands (requires an admin token)")
     admin_sub = p_admin.add_subparsers(dest="admin_command", required=True)
